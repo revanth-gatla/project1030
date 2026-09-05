@@ -87,7 +87,7 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
       <div className="safety-banner">
         <ShieldCheck size={26} style={{ flexShrink: 0, color: '#f59e0b' }} />
         <div>
-          <strong>Medical Safety Disclaimer:</strong> MedLens is an automated clinical decision support tool designed to assist healthcare professionals in extracting, normalizing, and comparing medical reports. MedLens does not formulate autonomous diagnoses or prescribe therapies. All insights and findings must be evaluated and authorized by a licensed clinician.
+          <strong>Medical Safety Disclaimer:</strong> MedPlus is an automated clinical decision support tool designed to assist healthcare professionals in extracting, normalizing, and comparing medical reports. MedPlus does not formulate autonomous diagnoses or prescribe therapies. All insights and findings must be evaluated and authorized by a licensed clinician.
         </div>
       </div>
 

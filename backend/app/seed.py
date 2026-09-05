@@ -57,6 +57,17 @@ async def seed_data() -> None:
         await session.flush()
         print(f"Created Clinician User: {doctor.email} (ID: {doctor.id})")
 
+        # 1b. Seed user revanthgatla6
+        res_revanth = await session.execute(select(User).where(User.email.like("revanthgatla%")))
+        if not res_revanth.scalar_one_or_none():
+            revanth = User(
+                email="revanthgatla6@gmail.com",
+                password_hash=hash_password("DemoPassword123!"),
+                is_active=True,
+            )
+            session.add(revanth)
+            await session.flush()
+
         # 2. Create Demo Patient
         patient = Patient(
             owner_user_id=doctor.id,

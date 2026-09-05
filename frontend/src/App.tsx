@@ -141,6 +141,16 @@ export const App: React.FC = () => {
     checkAuth();
   }, [loadPatientData]);
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null);
+      setSelectedPatient(null);
+      setPatients([]);
+    };
+    window.addEventListener('medlens_unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('medlens_unauthorized', handleUnauthorized);
+  }, []);
+
   // Auth Handlers
   const handleLogin = async (email: string, pass: string) => {
     const res = await api.login(email, pass);
@@ -313,7 +323,7 @@ export const App: React.FC = () => {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-app)', color: 'var(--text-muted)' }}>
         <div style={{ textAlign: 'center' }}>
           <div className="pulse-dot" style={{ margin: '0 auto 16px auto', width: '12px', height: '12px' }} />
-          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Initializing MedLens Platform...</div>
+          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Initializing MedPlus Platform...</div>
         </div>
       </div>
     );

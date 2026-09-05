@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="MedLens API",
+    title="MedPlus API",
     description="AI-Powered Medical Report & Patient Intake Intelligence",
     version="1.0.0",
     lifespan=lifespan,
@@ -163,7 +163,7 @@ async def request_id_middleware(request: Request, call_next):
 # ── Health / Readiness ──────────────────────────────────────
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": "medlens-api"}
+    return {"status": "healthy", "service": "medplus-api"}
 
 
 @app.get("/ready")

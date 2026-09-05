@@ -85,7 +85,7 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({
           </h2>
 
           <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: '580px', margin: '0 auto 24px auto', lineHeight: '1.5' }}>
-            MedLens calculates paired biomarker trajectories across chronological lab reports. Currently, this patient has{' '}
+            MedPlus calculates paired biomarker trajectories across chronological lab reports. Currently, this patient has{' '}
             <strong style={{ color: 'var(--text-main)' }}>
               {displayReports.length === 0 ? 'no processed reports' : 'only 1 report'}
             </strong>{' '}

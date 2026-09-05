@@ -99,7 +99,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <Activity size={26} color="#ffffff" />
           </div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
-            MedLens
+            MedPlus
           </h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
             AI-Powered Medical Report & Patient Intake Intelligence

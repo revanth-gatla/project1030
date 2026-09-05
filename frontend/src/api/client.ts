@@ -51,6 +51,11 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        this.setToken(null);
+        localStorage.removeItem('medlens_token');
+        window.dispatchEvent(new Event('medlens_unauthorized'));
+      }
       let errorMessage = 'Request failed';
       try {
         const errorData = await response.json();

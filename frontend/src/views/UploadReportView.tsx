@@ -152,7 +152,7 @@ export const UploadReportView: React.FC<UploadReportViewProps> = ({
           </h1>
           <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '4px' }}>
             Upload standard pathology/lab documents (PDF, DOCX, TXT) or paste raw clinical printouts.
-            MedLens performs parameter extraction, canonical normalization, deterministic reference ranges, and safety conflict detection.
+            MedPlus performs parameter extraction, canonical normalization, deterministic reference ranges, and safety conflict detection.
           </p>
         </div>
 
@@ -578,7 +578,7 @@ export const UploadReportView: React.FC<UploadReportViewProps> = ({
       {isProcessing && (
         <div className="glass-card" style={{ padding: '24px', borderLeft: '4px solid #38bdf8' }}>
           <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px' }}>
-            MedLens Extraction & Analysis Pipeline
+            MedPlus Extraction & Analysis Pipeline
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
