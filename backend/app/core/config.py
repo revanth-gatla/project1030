@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     ai_model: str = "gemini-3.6-flash"
 
     # --- CORS ---
-    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,https://project1030.vercel.app"
 
     # --- Uploads ---
     max_upload_size_mb: int = 20
