@@ -504,7 +504,7 @@ async def list_patient_reports(patient_id: int, db: AsyncSession) -> list[Report
 
 async def cleanup_corrupted_lab_results(db: AsyncSession) -> int:
     """Scan and delete corrupted lab results where cutoff tiers/metadata became parameter names,
-    and recalculate reference ranges/statuses for all existing valid results.
+    recalculate reference ranges/statuses, and auto-reprocess reports that had corrupted extractions.
     """
     from app.analysis.reference_engine import (
         calculate_reference_status,
@@ -515,12 +515,37 @@ async def cleanup_corrupted_lab_results(db: AsyncSession) -> int:
 
     lrs_res = await db.execute(select(LabResult))
     all_lrs = list(lrs_res.scalars().all())
-    corrupted_ids = [
-        lr.id
-        for lr in all_lrs
-        if is_disallowed_parameter_name(lr.original_name)
-        or is_disallowed_parameter_name(lr.canonical_name)
-    ]
+
+    corrupted_ids = []
+    reports_to_reprocess = set()
+
+    for lr in all_lrs:
+        if is_disallowed_parameter_name(lr.original_name) or is_disallowed_parameter_name(lr.canonical_name):
+            corrupted_ids.append(lr.id)
+            reports_to_reprocess.add(lr.report_id)
+
+    # If any report contained corrupted/disallowed parameters, re-process it completely
+    if reports_to_reprocess:
+        for rep_id in reports_to_reprocess:
+            rep_res = await db.execute(select(Report).where(Report.id == rep_id))
+            rep = rep_res.scalar_one_or_none()
+            if rep and rep.raw_text:
+                try:
+                    logger.info("auto_reprocessing_corrupted_report", report_id=rep.id)
+                    await process_report(rep, db)
+                except Exception as e:
+                    logger.warning("auto_reprocess_failed", report_id=rep.id, error=str(e))
+
+        # Re-fetch after reprocessing
+        lrs_res = await db.execute(select(LabResult))
+        all_lrs = list(lrs_res.scalars().all())
+        corrupted_ids = [
+            lr.id
+            for lr in all_lrs
+            if is_disallowed_parameter_name(lr.original_name)
+            or is_disallowed_parameter_name(lr.canonical_name)
+        ]
+
     changes_made = False
     if corrupted_ids:
         await db.execute(

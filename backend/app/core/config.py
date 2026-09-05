@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # --- AI ---
     ai_provider: Literal["gemini", "openai"] = "gemini"
     ai_api_key: str = ""
-    ai_model: str = "gemini-3.6-flash"
+    ai_model: str = "gemini-3.5-flash-lite"
 
     # --- CORS ---
     cors_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,https://project1030.vercel.app"

@@ -281,3 +281,51 @@ def test_undesirable_and_differential_percentage_counts():
     assert parse_numeric_value("<40 mg/dL") == 40.0
     assert parse_numeric_value("7.2 -11.0") == 7.2
 
+
+def test_dad_report_clinical_summary_extraction():
+    """Verify that clinical summary reports (e.g. dad_report.pdf) extract pure biomarkers without intake leakage."""
+    import os
+    from app.extraction.ai_provider import _fallback_rule_extraction
+    from app.extraction.document_processor import clean_text, extract_text
+    from app.normalization.normalizer import is_disallowed_parameter_name
+    from app.analysis.reference_engine import calculate_reference_status, parse_reference_range
+
+    dad_pdf_path = r"C:\Users\rishi\Downloads\dad_report.pdf"
+    if not os.path.exists(dad_pdf_path):
+        return
+
+    with open(dad_pdf_path, "rb") as f:
+        text = extract_text("dad_report.pdf", f.read())
+    cleaned = clean_text(text)
+    res = _fallback_rule_extraction(cleaned)
+
+    # Must extract the 52 lab results cleanly
+    assert len(res.parameters) == 52, f"Expected 52 parameters, got {len(res.parameters)}"
+
+    names = [p.original_name for p in res.parameters]
+
+    # Must NOT contain intake, metadata, medications, symptoms
+    for bad in ("ashokgatla57@gmail.com", "Amlodipine", "fatigue.", "Clinical Biochemistry", "Pending"):
+        assert bad not in names, f"Corrupted parameter '{bad}' was extracted!"
+
+    for p in res.parameters:
+        assert not is_disallowed_parameter_name(p.original_name)
+        assert not is_disallowed_parameter_name(p.canonical_name if hasattr(p, "canonical_name") else p.original_name)
+
+    # Verify Hemoglobin has reference range and is WITHIN
+    hb = next((p for p in res.parameters if "hemoglobin" in p.original_name.lower()), None)
+    assert hb is not None
+    assert hb.observed_value == "13.2"
+    assert hb.reference_range == "13.0 - 17.0"
+    low, high = parse_reference_range(hb.reference_range)
+    assert calculate_reference_status(13.2, low, high) == "WITHIN"
+
+    # Verify Fasting Glucose has reference range and is HIGH
+    glu = next((p for p in res.parameters if "glucose" in p.original_name.lower()), None)
+    assert glu is not None
+    assert glu.observed_value == "128.0"
+    assert glu.reference_range == "70.0 - 99.0"
+    low_g, high_g = parse_reference_range(glu.reference_range)
+    assert calculate_reference_status(128.0, low_g, high_g) == "HIGH"
+
+

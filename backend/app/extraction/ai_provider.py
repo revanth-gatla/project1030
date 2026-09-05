@@ -129,26 +129,33 @@ class GeminiProvider(AIProvider):
         from google import genai
         from google.genai import types
 
-        # 1. Try Gemini AI extraction
-        try:
-            client = genai.Client(api_key=self.api_key)
-            response = await asyncio.wait_for(
-                client.aio.models.generate_content(
-                    model=self.model,
-                    contents=f"{EXTRACTION_SYSTEM_PROMPT}\n\n---\nREPORT TEXT:\n{report_text}",
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        temperature=0.1,
+        # 1. Try Gemini AI extraction with resilient model fallback and 30s timeout
+        client = genai.Client(api_key=self.api_key)
+        # Prioritize high-quota flash models to avoid 429 quota exhaustion
+        models_to_try = ["gemini-3.5-flash-lite", "gemini-flash-latest", self.model]
+        if self.model and self.model not in models_to_try:
+            models_to_try.append(self.model)
+
+        for model_name in models_to_try:
+            try:
+                response = await asyncio.wait_for(
+                    client.aio.models.generate_content(
+                        model=model_name,
+                        contents=f"{EXTRACTION_SYSTEM_PROMPT}\n\n---\nREPORT TEXT:\n{report_text}",
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            temperature=0.1,
+                        ),
                     ),
-                ),
-                timeout=5.0,
-            )
-            if response.text and response.text.strip():
-                parsed = _parse_extraction_response(response.text, report_text)
-                if parsed.parameters:
-                    return parsed
-        except Exception as e:
-            logger.warning("gemini_extract_failed_switching_to_rule_engine", error=str(e))
+                    timeout=30.0,
+                )
+                if response.text and response.text.strip():
+                    parsed = _parse_extraction_response(response.text, report_text)
+                    if parsed.parameters:
+                        logger.info("gemini_extract_success", model=model_name, count=len(parsed.parameters))
+                        return parsed
+            except Exception as e:
+                logger.warning("gemini_model_failed_trying_fallback", model=model_name, error=str(e)[:150])
 
         # 2. Resilient Fallback: Deterministic Rule & Regex Extraction Engine
         fallback = _fallback_rule_extraction(report_text)
@@ -626,10 +633,91 @@ def _fallback_rule_extraction(report_text: str) -> ExtractionResult:
         re.IGNORECASE,
     )
 
+    # 1. SPECIAL CASE: MedPlus Clinical Summary Export (contains "Extracted & Normalized Lab Results")
+    has_export_table = any("Extracted & Normalized Lab Results" in l for l in lines)
+    if has_export_table:
+        start_idx = -1
+        end_idx = len(lines)
+        for idx, l in enumerate(lines):
+            if "Extracted & Normalized Lab Results" in l:
+                start_idx = idx + 1
+            elif start_idx != -1 and any(stop_hdr in l for stop_hdr in (
+                "4. Clinical Safety", "Clinical Safety & Reconciliation", "5. AI-Assisted", "AI-Assisted Clinical Summary"
+            )):
+                end_idx = idx
+                break
+
+        table_headers = {
+            "Biomarker / Test", "Result Value", "Units", "Reference Interval", "Status", "Verified"
+        }
+        sub_lines = [l for l in lines[start_idx:end_idx] if l and l not in table_headers]
+        k = 0
+        while k < len(sub_lines):
+            # Check 7-line format: Canonical, Original, Val, Unit, Range, Status, Verified
+            if k + 4 < len(sub_lines) and re.match(r"^[<>]?\s*\d[\d,]*(?:\.\d+)?$", sub_lines[k+2]):
+                original = sub_lines[k+1]
+                val = sub_lines[k+2]
+                unit = sub_lines[k+3] if sub_lines[k+3] != "None" else None
+                rng = sub_lines[k+4] if sub_lines[k+4] != "None" else None
+                if not is_disallowed_parameter_name(original):
+                    parameters.append(
+                        ExtractedParameter(
+                            original_name=original,
+                            observed_value=val,
+                            unit=unit,
+                            reference_range=rng,
+                            source_text=f"{original}: {val} {unit or ''} ({rng or ''})",
+                            confidence=0.98,
+                        )
+                    )
+                k += 7
+            # Check 6-line format: Name, Val, Unit, Range, Status, Verified
+            elif k + 3 < len(sub_lines) and re.match(r"^[<>]?\s*\d[\d,]*(?:\.\d+)?$", sub_lines[k+1]):
+                original = sub_lines[k]
+                val = sub_lines[k+1]
+                unit = sub_lines[k+2] if sub_lines[k+2] != "None" else None
+                rng = sub_lines[k+3] if sub_lines[k+3] != "None" else None
+                if not is_disallowed_parameter_name(original):
+                    parameters.append(
+                        ExtractedParameter(
+                            original_name=original,
+                            observed_value=val,
+                            unit=unit,
+                            reference_range=rng,
+                            source_text=f"{original}: {val} {unit or ''} ({rng or ''})",
+                            confidence=0.98,
+                        )
+                    )
+                k += 6
+            else:
+                k += 1
+
+        if parameters:
+            return ExtractionResult(parameters=parameters, report_date=rep_date, source_name=src_name)
+
     i = 0
+    in_intake_section = False
+
     while i < len(lines):
         line_str = lines[i]
         if not line_str or line_str.startswith("-") or line_str.startswith("=") or line_str.startswith("***"):
+            i += 1
+            continue
+
+        # Skip non-lab narrative sections
+        if any(sec in line_str for sec in (
+            "1. Clinical Intake & Context", "2. Diagnostic Reports on Record",
+            "4. Clinical Safety & Reconciliation", "5. AI-Assisted Clinical Summary",
+            "Chief Symptoms:", "Existing Diagnoses:", "Documented Allergies:",
+            "Current Medications:", "Clinical Notes:", "Managing Clinician:"
+        )):
+            in_intake_section = True
+        elif any(sec in line_str for sec in (
+            "3. Extracted & Normalized Lab Results", "COMPLETE BLOOD COUNT", "BIOCHEMISTRY", "LIPID PROFILE"
+        )):
+            in_intake_section = False
+
+        if in_intake_section:
             i += 1
             continue
 
@@ -710,14 +798,14 @@ def _fallback_rule_extraction(report_text: str) -> ExtractionResult:
                     unit = cand_unit
                     ref = rem if rem else None
 
-                    # Also check if subsequent lines have units or tier ranges
+                    # Also check if subsequent lines have units, reference ranges, or tier ranges
                     consumed = look_idx + 1
                     while consumed < len(lines):
                         nxt = lines[consumed].strip()
                         if not nxt:
                             consumed += 1
                             continue
-                        if nxt.lower() in ("mg/dl", "g/dl", "gm/dl", "u/l", "%", "µg/dl", "ng/ml", "µiu/ml"):
+                        if nxt.lower() in ("mg/dl", "g/dl", "gm/dl", "u/l", "%", "µg/dl", "ng/ml", "µiu/ml", "cells/ul", "cells/µl", "/ul", "/µl", "fl", "pg", "mmol/l", "umol/l"):
                             if not unit:
                                 unit = nxt
                             consumed += 1
@@ -731,18 +819,33 @@ def _fallback_rule_extraction(report_text: str) -> ExtractionResult:
                                 ref += f" | {tier_str}"
                             consumed += 1
                             continue
+                        m_ref_sub = re_ref_line.match(nxt)
+                        if m_ref_sub:
+                            if not ref:
+                                ref = m_ref_sub.group("range").strip()
+                            consumed += 1
+                            continue
+                        if re.match(r"^[<>]?\s*\d[\d,]*(?:\.\d+)?\s*(?:[-–—to]+\s*[<>]?\s*\d[\d,]*(?:\.\d+)?|\b)\s*(?:[A-Za-z/%µflpg]+)?$", nxt):
+                            if not ref:
+                                ref = nxt
+                            consumed += 1
+                            continue
+                        if nxt.upper() in ("NORMAL", "HIGH", "LOW", "ABOVE", "BELOW", "WITHIN", "ALERT", "PENDING", "VERIFIED"):
+                            consumed += 1
+                            continue
                         break
 
-                    parameters.append(
-                        ExtractedParameter(
-                            original_name=name_candidate,
-                            observed_value=val,
-                            unit=unit,
-                            reference_range=ref,
-                            source_text=f"{name_candidate}: {val} {unit or ''} {ref or ''}".strip(),
-                            confidence=0.98,
+                    if not is_disallowed_parameter_name(name_candidate):
+                        parameters.append(
+                            ExtractedParameter(
+                                original_name=name_candidate,
+                                observed_value=val,
+                                unit=unit,
+                                reference_range=ref,
+                                source_text=f"{name_candidate}: {val} {unit or ''} {ref or ''}".strip(),
+                                confidence=0.98,
+                            )
                         )
-                    )
                     i = consumed
                     continue
 

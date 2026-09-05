@@ -336,6 +336,41 @@ def is_disallowed_parameter_name(name: str | None) -> bool:
     if not compact:
         return True
 
+    # Reject email addresses
+    if "@" in cleaned and "." in cleaned:
+        return True
+
+    # Reject single or two-character noise symbols (unless recognized elements/short tests like T3, T4, Hb)
+    if len(cleaned) <= 2 and cleaned not in ("t3", "t4", "hb", "na", "k", "cl", "fe", "cr", "ca", "mg", "p", "ph", "co", "zn", "cu", "bp"):
+        return True
+
+    # Reject common medications, dosages, and regimens
+    if any(med in cleaned for med in (
+        "amlodipine", "metformin", "lisinopril", "atorvastatin", "aspirin", "paracetamol",
+        "once daily", "twice daily", "daily dose", "tablet", "capsule", "syrup", "oral",
+        "mg daily", "active regimen",
+    )):
+        return True
+
+    # Reject symptoms, clinical intake history, complaints
+    if any(sym in cleaned for sym in (
+        "fatigue", "thirst", "urination", "fever", "headache", "cough", "chest pain",
+        "blurred vision", "nausea", "vomiting", "shortness of breath", "weight loss",
+        "chief symptoms", "clinical notes", "existing diagnoses", "documented allergies",
+        "symptoms have been present", "patient reports",
+    )):
+        return True
+
+    # Reject administrative headers, departments, report metadata, and summary phrases
+    if any(meta in cleaned for meta in (
+        "clinical biochemistry", "diagnostic division", "managing clinician", "managing doctor",
+        "intake & context", "official clinical record", "diagnostic reports", "reports on record",
+        "processingstatus", "safety conflicts", "all findings reconciled", "indicating out-of-range",
+        "generated", "verified", "pending", "document title", "source facility", "tests status",
+        "level =", "ref =", "biomarker / test", "result value", "reference interval", "clinical intelligence",
+    )):
+        return True
+
     tier_compact_prefixes = (
         "desirable", "optimal", "borderline", "undesirable", "undesir",
         "risk", "moderaterisk", "moderate", "highrisk", "veryhigh",
