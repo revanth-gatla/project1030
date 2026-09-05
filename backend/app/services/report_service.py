@@ -267,7 +267,11 @@ async def process_report(report: Report, db: AsyncSession) -> Report:
                 if param.unit and not recovered_ref.endswith(param.unit):
                     recovered_ref = f"{recovered_ref} {param.unit}".strip()
                 created_lrs[-1].reference_range_text = recovered_ref
-                low, high = parse_reference_range(recovered_ref)
+                low, high = parse_reference_range(
+                    recovered_ref,
+                    param.unit or created_lrs[-1].unit,
+                    created_lrs[-1].observed_value,
+                )
                 created_lrs[-1].reference_low = low
                 created_lrs[-1].reference_high = high
                 created_lrs[-1].reference_status = calculate_reference_status(created_lrs[-1].value_numeric, low, high)
@@ -278,7 +282,7 @@ async def process_report(report: Report, db: AsyncSession) -> Report:
             continue
 
         value_numeric = parse_numeric_value(param.observed_value)
-        ref_low, ref_high = parse_reference_range(param.reference_range)
+        ref_low, ref_high = parse_reference_range(param.reference_range, param.unit, param.observed_value)
         ref_status = calculate_reference_status(value_numeric, ref_low, ref_high)
 
         # Ensure genuine confidence or None (never fabricated universal defaults)
@@ -456,37 +460,68 @@ async def generate_report_insights(
 
 
 async def get_report_with_results(report_id: int, db: AsyncSession) -> Report | None:
-    """Get report with lab results loaded."""
+    """Get report with lab results loaded, ensuring corrupted rows are pruned and statuses accurate."""
     from sqlalchemy.orm import selectinload
+
+    await cleanup_corrupted_lab_results(db)
     result = await db.execute(
         select(Report).options(selectinload(Report.lab_results)).where(Report.id == report_id)
     )
-    return result.scalar_one_or_none()
+    report = result.scalar_one_or_none()
+    if report and report.lab_results:
+        # Extra in-memory protection: filter out any disallowed parameters
+        report.lab_results = [
+            lr
+            for lr in report.lab_results
+            if not is_disallowed_parameter_name(lr.original_name)
+            and not is_disallowed_parameter_name(lr.canonical_name)
+        ]
+    return report
 
 
 async def list_patient_reports(patient_id: int, db: AsyncSession) -> list[Report]:
+    """List patient reports with lab results loaded and cleansed."""
     from sqlalchemy.orm import selectinload
+
+    await cleanup_corrupted_lab_results(db)
     result = await db.execute(
         select(Report)
         .options(selectinload(Report.lab_results))
         .where(Report.patient_id == patient_id)
         .order_by(Report.report_date.desc().nullslast(), Report.created_at.desc())
     )
-    return list(result.scalars().all())
+    reports = list(result.scalars().all())
+    for r in reports:
+        if r.lab_results:
+            r.lab_results = [
+                lr
+                for lr in r.lab_results
+                if not is_disallowed_parameter_name(lr.original_name)
+                and not is_disallowed_parameter_name(lr.canonical_name)
+            ]
+    return reports
 
 
 async def cleanup_corrupted_lab_results(db: AsyncSession) -> int:
-    """Scan and delete corrupted lab results where metadata labels became parameter names."""
+    """Scan and delete corrupted lab results where cutoff tiers/metadata became parameter names,
+    and recalculate reference ranges/statuses for all existing valid results.
+    """
+    from app.analysis.reference_engine import (
+        calculate_reference_status,
+        parse_numeric_value,
+        parse_reference_range,
+    )
     from app.normalization.normalizer import is_disallowed_parameter_name
 
     lrs_res = await db.execute(select(LabResult))
-    all_lrs = lrs_res.scalars().all()
+    all_lrs = list(lrs_res.scalars().all())
     corrupted_ids = [
         lr.id
         for lr in all_lrs
         if is_disallowed_parameter_name(lr.original_name)
         or is_disallowed_parameter_name(lr.canonical_name)
     ]
+    changes_made = False
     if corrupted_ids:
         await db.execute(
             delete(Provenance).where(
@@ -495,7 +530,39 @@ async def cleanup_corrupted_lab_results(db: AsyncSession) -> int:
             )
         )
         await db.execute(delete(LabResult).where(LabResult.id.in_(corrupted_ids)))
-        await db.flush()
+        changes_made = True
         logger.info("cleaned_corrupted_lab_results", count=len(corrupted_ids))
+
+    # Re-evaluate remaining lab results
+    for lr in all_lrs:
+        if lr.id in corrupted_ids:
+            continue
+
+        # Re-parse numeric value if needed
+        val_num = parse_numeric_value(lr.observed_value)
+        if val_num is not None and lr.value_numeric != val_num:
+            lr.value_numeric = val_num
+            changes_made = True
+
+        # Re-parse reference range with unit and observed value awareness (e.g. DLC differential % ranges)
+        low, high = parse_reference_range(lr.reference_range_text, lr.unit, lr.observed_value)
+        if low != lr.reference_low or high != lr.reference_high:
+            lr.reference_low = low
+            lr.reference_high = high
+            changes_made = True
+
+        # Recalculate reference status deterministically
+        new_status = calculate_reference_status(lr.value_numeric, lr.reference_low, lr.reference_high)
+        if new_status != lr.reference_status:
+            lr.reference_status = new_status
+            changes_made = True
+
+    if changes_made:
+        try:
+            await db.commit()
+        except Exception as e:
+            logger.warning("cleanup_commit_failed", error=str(e))
+            await db.rollback()
+
     return len(corrupted_ids)
 

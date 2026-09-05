@@ -234,3 +234,50 @@ async def test_duplicate_conflict_persistence_prevention(db_session):
     confs_second = (await db_session.execute(select(Conflict).where(Conflict.patient_id == patient.id))).scalars().all()
     # Must STILL be exactly 1 conflict record, NOT 2
     assert len(confs_second) == 1, f"Expected exactly 1 conflict after reprocessing, got {len(confs_second)}"
+
+
+def test_undesirable_and_differential_percentage_counts():
+    """Verify corrupted cutoff tiers are rejected and differential percentage counts are evaluated accurately."""
+    from app.analysis.reference_engine import parse_numeric_value, parse_reference_range, calculate_reference_status
+    from app.normalization.normalizer import is_disallowed_parameter_name
+
+    # 1. Reject cutoff tiers and risk headers extracted by OCR/PDF space artifacts
+    assert is_disallowed_parameter_name("Undesir Able") is True
+    assert is_disallowed_parameter_name("Moder Ate Risk") is True
+    assert is_disallowed_parameter_name("Borderline : 200 - 239") is True
+    assert is_disallowed_parameter_name("Near Optimal") is True
+    assert is_disallowed_parameter_name("Average Risk: 4.5-7.1") is True
+
+    # Legitimate tests must never be rejected
+    assert is_disallowed_parameter_name("Neutrophils") is False
+    assert is_disallowed_parameter_name("Lymphocytes") is False
+    assert is_disallowed_parameter_name("Monocytes") is False
+    assert is_disallowed_parameter_name("Eosinophils") is False
+    assert is_disallowed_parameter_name("Basophils") is False
+
+    # 2. Differential Leukocyte Counts (DLC) measured in % with compound ranges
+    neutro_low, neutro_high = parse_reference_range("2.0-7.5 X 10³/uL (40 - 80%)", unit="%", observed_value="61.1 %")
+    assert (neutro_low, neutro_high) == (40.0, 80.0)
+    assert calculate_reference_status(61.1, neutro_low, neutro_high) == "WITHIN"
+
+    lympho_low, lympho_high = parse_reference_range("1.0-4.0 X 10³/uL (20 - 40%)", unit="%", observed_value="29.6 %")
+    assert (lympho_low, lympho_high) == (20.0, 40.0)
+    assert calculate_reference_status(29.6, lympho_low, lympho_high) == "WITHIN"
+
+    mono_low, mono_high = parse_reference_range("0.2-1.0 X 10³/uL (2 - 10%)", unit="%", observed_value="5.3 %")
+    assert (mono_low, mono_high) == (2.0, 10.0)
+    assert calculate_reference_status(5.3, mono_low, mono_high) == "WITHIN"
+
+    eosino_low, eosino_high = parse_reference_range("0.02-0.5 X 10³/uL (1-6%)", unit="%", observed_value="3.1 %")
+    assert (eosino_low, eosino_high) == (1.0, 6.0)
+    assert calculate_reference_status(3.1, eosino_low, eosino_high) == "WITHIN"
+
+    baso_low, baso_high = parse_reference_range("0.02 - 0.1 X 10³/uL (1-2%) | Borderline: 200 - 239", unit="%", observed_value="0.9 %")
+    assert (baso_low, baso_high) == (1.0, 2.0)
+    assert calculate_reference_status(0.9, baso_low, baso_high) == "LOW"
+
+    # 3. Numeric values with operators
+    assert parse_numeric_value("> 240 mg/dL") == 240.0
+    assert parse_numeric_value("<40 mg/dL") == 40.0
+    assert parse_numeric_value("7.2 -11.0") == 7.2
+

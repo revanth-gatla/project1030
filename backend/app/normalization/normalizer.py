@@ -331,10 +331,23 @@ def is_disallowed_parameter_name(name: str | None) -> bool:
     if cleaned in DISALLOWED_PARAMETER_NAMES:
         return True
 
-    # Check if this is a classification tier / cutoff text e.g. "Borderline : 200 - 239"
+    # Check if this is a classification tier / cutoff text e.g. "Borderline : 200 - 239", "Undesir Able", "Moder Ate Risk"
+    compact = re.sub(r"[\s_\-]+", "", cleaned)
+    if not compact:
+        return True
+
+    tier_compact_prefixes = (
+        "desirable", "optimal", "borderline", "undesirable", "undesir",
+        "risk", "moderaterisk", "moderate", "highrisk", "veryhigh",
+        "lowrisk", "averagerisk", "borderlinerisk", "borderlinehigh", "nearoptimal",
+    )
+    for tc in tier_compact_prefixes:
+        if compact == tc or compact.startswith(tc) or compact.endswith("risk"):
+            return True
+
     tier_words = (
         "desirable", "optimal", "borderline", "undesirable", "risk",
-        "adult", "near optimal", "very high",
+        "adult", "near optimal", "very high", "moderate",
     )
     for tw in tier_words:
         if cleaned == tw or cleaned.startswith(f"{tw} ") or cleaned.startswith(f"{tw}:") or cleaned.startswith(f"{tw}-"):

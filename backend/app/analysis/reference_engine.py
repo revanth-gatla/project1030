@@ -22,7 +22,11 @@ class ReferenceStatusResult(str):
         return super().__hash__()
 
 
-def parse_reference_range(text: str | None) -> tuple[float | None, float | None]:
+def parse_reference_range(
+    text: str | None,
+    unit: str | None = None,
+    observed_value: str | None = None,
+) -> tuple[float | None, float | None]:
     """Parse a reference range string like '13-17', '13 - 17', '13.0 - 17.0 g/dL', '< 200', '> 40' etc.
 
     Returns (low, high). Either may be None if not determinable.
@@ -31,6 +35,18 @@ def parse_reference_range(text: str | None) -> tuple[float | None, float | None]
         return None, None
 
     text = text.strip().replace(",", "")
+
+    # Priority 1: If unit or observed_value is percentage, or text has both absolute count and percentage range
+    # e.g., "2.0-7.5 X 10³/uL (40 - 80%)", "0.2-1.0 X 10³/uL(2 - 10%)", "(1-2%) | Borderline: 200 - 239"
+    has_pct_context = (
+        (unit and "%" in unit)
+        or (observed_value and "%" in str(observed_value))
+        or ("%" in text and any(sep in text for sep in ("X 10", "x 10", "10^", "10³", "/uL", "/µL", "cells")))
+    )
+    if has_pct_context:
+        m_pct = re.search(r"\(?\s*(\d+(?:\.\d+)?)\s*%?\s*(?:-|–|—|\bto\b)\s*(\d+(?:\.\d+)?)\s*%\s*\)?", text)
+        if m_pct:
+            return float(m_pct.group(1)), float(m_pct.group(2))
 
     # If compound with '|', prefer desirable / optimal / normal / low risk / adult part
     if "|" in text:
@@ -116,17 +132,25 @@ def calculate_reference_status(
 
 
 
-def parse_numeric_value(value: str) -> float | None:
-    """Try to extract a numeric value from a string like '10.2', '> 1000', '5,400'."""
+def parse_numeric_value(value: str | None) -> float | None:
+    """Try to extract a numeric value from a string like '10.2', '> 1000', '5,400', '> 240 mg/dL'."""
     if not value:
         return None
     cleaned = value.strip().replace(",", "")
     # Remove leading operators
-    cleaned = re.sub(r"^[<>≤≥=~]+\s*", "", cleaned)
+    cleaned = re.sub(r"^[<>≤≥=~]+\s*", "", cleaned).strip()
     try:
         return float(cleaned)
     except ValueError:
-        return None
+        pass
+    # If units or text are appended, search for the first numeric value
+    m = re.search(r"(\d+(?:\.\d+)?)", cleaned)
+    if m:
+        try:
+            return float(m.group(1))
+        except ValueError:
+            return None
+    return None
 
 
 def calculate_change_direction(
