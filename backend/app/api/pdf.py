@@ -25,7 +25,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.dependencies import authorize_patient_access, get_current_user
 from app.models.analysis import ClarificationQuestion, Conflict, Insight, ReviewHistory
-from app.models.patient import Patient, PatientIntake
+from app.models.patient import PatientIntake
 from app.models.report import LabResult, Report
 from app.models.user import User
 
@@ -100,7 +100,7 @@ async def generate_patient_pdf_report(
     )
 
     styles = getSampleStyleSheet()
-    
+
     # Custom styles
     primary_color = colors.HexColor("#0284c7")
     dark_slate = colors.HexColor("#0f172a")

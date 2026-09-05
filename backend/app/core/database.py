@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-
-from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from app.core.config import get_settings
 

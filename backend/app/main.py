@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI):
         # 3. Seed demonstration dataset if no users exist
         async with async_session_factory() as session:
             from sqlalchemy import select
+
             from app.models.user import User
             res = await session.execute(select(User).limit(1))
             if res.scalar_one_or_none() is None:

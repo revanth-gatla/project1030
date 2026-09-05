@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, model_validator, computed_field
+from pydantic import BaseModel, computed_field, model_validator
 
 # ── Conflicts ───────────────────────────────────────────────
 

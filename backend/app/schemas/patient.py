@@ -6,6 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.schemas.report import ReportResponse
+
 
 class PatientCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
@@ -48,7 +50,6 @@ class IntakeResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-from app.schemas.report import ReportResponse
 
 
 class PatientResponse(BaseModel):

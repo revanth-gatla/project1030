@@ -78,8 +78,8 @@ async def get_one(
 ):
     patient = await authorize_patient_access(patient_id, user, db)
     intake_data = await get_intake(patient_id, db)
-    from app.services.report_service import list_patient_reports
     from app.schemas.report import ReportResponse
+    from app.services.report_service import list_patient_reports
 
     patient_reports = await list_patient_reports(patient_id, db)
     return PatientResponse(

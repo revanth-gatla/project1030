@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import structlog
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -17,7 +17,6 @@ from app.schemas.report import (
     LabResultResponse,
     LabResultUpdate,
     PasteReportRequest,
-    ReportListResponse,
     ReportResponse,
 )
 from app.services.analysis_service import update_lab_result
@@ -103,7 +102,7 @@ async def process(
     )
     labs = results_query.scalars().all()
     resp = ReportResponse.model_validate(processed)
-    resp.lab_results = [LabResultResponse.model_validate(l) for l in labs]
+    resp.lab_results = [LabResultResponse.model_validate(lab) for lab in labs]
     return resp
 
 
@@ -247,12 +246,10 @@ async def submit_report_review(
     """Record clinician review decision and audit trail."""
     report = await _get_authorized_report(report_id, user, db)
     from app.models.analysis import ReviewHistory
-    from app.schemas.analysis import ReviewResponse
     from app.models.report import ProcessingStatus
+    from app.schemas.analysis import ReviewResponse
 
     new_status = body.get("status", "ACCEPTED")
-    notes = body.get("notes", "")
-
     prev_status = report.processing_status
     if new_status in ["ACCEPTED", "VALIDATED"]:
         report.processing_status = ProcessingStatus.VALIDATED.value

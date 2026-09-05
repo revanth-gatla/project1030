@@ -23,7 +23,6 @@ from app.core.errors import (
     ProcessingError,
     StructuredExtractionFailedError,
     UploadFailedError,
-    ValidationError,
 )
 from app.extraction.ai_provider import (
     EXTRACTION_PROMPT_VERSION,

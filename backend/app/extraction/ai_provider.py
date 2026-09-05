@@ -125,6 +125,7 @@ class GeminiProvider(AIProvider):
 
     async def extract_report(self, report_text: str) -> ExtractionResult:
         import asyncio
+
         from google import genai
         from google.genai import types
 
@@ -277,7 +278,7 @@ def extract_source_name(text: str) -> str | None:
         if len(clean) >= 4:
             return clean.title()
 
-    lines = [l.strip() for l in text.splitlines()[:15] if l.strip()]
+    lines = [line.strip() for line in text.splitlines()[:15] if line.strip()]
     for line in lines:
         upper = line.upper()
         if any(term in upper for term in ("LABORATORY", "HOSPITAL", "PATHOLOGY", "DIAGNOSTICS")):
@@ -391,7 +392,6 @@ def _generate_deterministic_clinical_insights(structured_data: dict) -> dict:
     intake = structured_data.get("intake") or {}
     meds = intake.get("medications")
     conds = intake.get("existing_conditions")
-    symps = intake.get("symptoms")
 
     lab_results = structured_data.get("lab_results") or []
 
@@ -411,7 +411,7 @@ def _generate_deterministic_clinical_insights(structured_data: dict) -> dict:
         )
 
         high_desc = [f"{h.get('canonical_name')} ({h.get('observed_value')} {h.get('unit') or ''}, ref: {h.get('reference_range') or 'normal'})" for h in highs]
-        low_desc = [f"{l.get('canonical_name')} ({l.get('observed_value')} {l.get('unit') or ''}, ref: {l.get('reference_range') or 'normal'})" for l in lows]
+        low_desc = [f"{item.get('canonical_name')} ({item.get('observed_value')} {item.get('unit') or ''}, ref: {item.get('reference_range') or 'normal'})" for item in lows]
 
         if high_desc:
             summary_parts.append(f"Elevated parameters identified: {', '.join(high_desc)}.")
@@ -459,11 +459,11 @@ def _generate_deterministic_clinical_insights(structured_data: dict) -> dict:
         ref = h.get("reference_range") or "standard"
         key_findings_list.append(f"• Elevated {cname} ({val} {u}): Exceeds reference interval ({ref}), indicating out-of-range clinical elevation.")
 
-    for l in lows:
-        cname = l.get("canonical_name")
-        val = l.get("observed_value")
-        u = l.get("unit") or ""
-        ref = l.get("reference_range") or "standard"
+    for item in lows:
+        cname = item.get("canonical_name")
+        val = item.get("observed_value")
+        u = item.get("unit") or ""
+        ref = item.get("reference_range") or "standard"
         key_findings_list.append(f"• Decreased {cname} ({val} {u}): Below reference interval ({ref}), indicating sub-optimal physiological range.")
 
     if withins:
@@ -566,11 +566,12 @@ def _generate_deterministic_clinical_insights(structured_data: dict) -> dict:
 def _fallback_rule_extraction(report_text: str) -> ExtractionResult:
     """Deterministic regex extraction fallback supporting colon, table, and multi-line vertical formats."""
     import re
+
     from app.normalization.normalizer import is_disallowed_parameter_name
     from app.schemas.report import ExtractedParameter
 
     parameters: list[ExtractedParameter] = []
-    lines = [l.strip() for l in report_text.splitlines()]
+    lines = [line.strip() for line in report_text.splitlines()]
 
     rep_date = extract_report_date(report_text)
     src_name = extract_source_name(report_text)
@@ -592,11 +593,7 @@ def _fallback_rule_extraction(report_text: str) -> ExtractionResult:
         "TEST PARAMETER", "OBSERVED VALUE", "INTERPRETATION", "INVESTIGATION",
     )
 
-    re_num = re.compile(r"^[<>]?\s*\d[\d,]*(?:\.\d+)?$")
-    re_ref = re.compile(
-        r"^(?:[<>]?\s*\d[\d,]*(?:\.\d+)?\s*[-–—to]+\s*[<>]?\s*\d[\d,]*(?:\.\d+)?|[<>]=?\s*\d[\d,]*(?:\.\d+)?)(?:\s*[A-Za-z/%]+)?$",
-        re.IGNORECASE,
-    )
+
 
     # Matches lines like: "Reference Range: 13.0 - 17.0 g/dL"
     re_ref_line = re.compile(
