@@ -1,0 +1,63 @@
+# ============================================================
+# MedLens — Render Blueprint Specification (Infrastructure-as-Code)
+# https://docs.render.com/blueprint-spec
+# ============================================================
+
+databases:
+  - name: medlens-db
+    plan: free
+    databaseName: medlens
+    user: medlens
+
+services:
+  # ------------------------------------------------------------
+  # Backend API (FastAPI + SQLAlchemy + Asyncpg + Docker)
+  # ------------------------------------------------------------
+  - type: web
+    name: medlens-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: medlens-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRATION_MINUTES
+        value: 1440
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_MODEL
+        value: gemini-2.5-flash
+      - key: AI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://medlens-frontend.onrender.com,http://localhost:3000,http://localhost:5173
+      - key: MAX_UPLOAD_SIZE_MB
+        value: 20
+
+  # ------------------------------------------------------------
+  # Frontend Client (React 19 + TypeScript + Vite Static Site)
+  # ------------------------------------------------------------
+  - type: web
+    name: medlens-frontend
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://medlens-backend.onrender.com

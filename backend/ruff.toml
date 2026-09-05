@@ -1,0 +1,10 @@
+line-length = 120
+
+[lint]
+select = ["E", "F", "I", "W", "B"]
+ignore = [
+    "B008",  # Depends in argument defaults
+    "BLE001", # Blind exception catching
+    "E501",  # Line too long
+    "B904",  # raise ... from err
+]

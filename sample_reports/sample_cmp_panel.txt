@@ -1,0 +1,36 @@
+METROPOLITAN CLINICAL LABORATORIES
+1044 Medical Parkway, Suite 300, Chicago, IL 60611
+CLIA ID: 14D0987654 | Director: Dr. Sarah Vance, MD
+
+PATIENT LAB REPORT - COMPREHENSIVE METABOLIC PANEL (CMP)
+----------------------------------------------------------------------
+Patient Name: Robert Martinez
+Patient ID: MED-88219
+DOB: 1970-04-12 | Age: 54 | Sex: Male
+Collection Date: 2024-09-01 08:30 AM
+Physician: Dr. Eleanor Vance, MD
+
+TEST NAME               RESULT   UNIT       FLAG   REFERENCE RANGE
+----------------------------------------------------------------------
+Glucose, Serum          148      mg/dL      HIGH   70 - 99
+Blood Urea Nitrogen     24       mg/dL      HIGH   7 - 20
+Creatinine, Serum       1.45     mg/dL      HIGH   0.70 - 1.30
+eGFR (CKD-EPI)          52       mL/min     LOW    >= 60
+Sodium, Serum           139      mmol/L            136 - 145
+Potassium, Serum        5.3      mmol/L     HIGH   3.5 - 5.0
+Chloride, Serum         102      mmol/L            96 - 106
+Carbon Dioxide (CO2)    23       mmol/L            20 - 29
+Calcium, Serum          9.2      mg/dL             8.6 - 10.2
+Total Protein           7.1      g/dL              6.0 - 8.3
+Albumin, Serum          4.2      g/dL              3.5 - 5.0
+Total Bilirubin         0.8      mg/dL             0.2 - 1.2
+Alkaline Phosphatase    78       IU/L              44 - 121
+AST (SGOT)              28       IU/L              10 - 40
+ALT (SGPT)              34       IU/L              9 - 46
+
+NOTES & COMMENTS:
+- Specimen received at 20 C, non-hemolyzed.
+- Elevated potassium (5.3 mmol/L) confirmed with repeat testing.
+- Moderate renal insufficiency indicated by eGFR 52 mL/min/1.73m2.
+----------------------------------------------------------------------
+End of Report

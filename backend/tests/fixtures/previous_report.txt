@@ -1,0 +1,35 @@
+COMPLETE BLOOD COUNT (CBC)
+Patient Name: Demo Patient
+Age: 41 years
+Sex: Male
+Date: 2026-01-15
+Lab: City Hospital Labs
+
+Test                    Result      Unit        Reference Range
+----                    ------      ----        ---------------
+Hemoglobin (Hb)         11.8        g/dL        13.0 - 17.0
+Total WBC Count         6800        /cumm       4000 - 11000
+RBC Count               4.6         mill/cumm   4.5 - 5.5
+Hematocrit (HCT)        38.5        %           40 - 54
+Platelet Count          235000      /cumm       150000 - 400000
+ESR                     22          mm/hr       0 - 15
+
+BLOOD SUGAR
+Fasting Blood Sugar     128         mg/dL       70 - 110
+HbA1c                   7.2         %           < 5.7
+
+LIPID PROFILE
+Total Cholesterol       228         mg/dL       < 200
+HDL Cholesterol         42          mg/dL       > 40
+LDL Cholesterol         152         mg/dL       < 100
+Triglycerides           170         mg/dL       < 150
+
+KIDNEY FUNCTION
+Creatinine              1.1         mg/dL       0.7 - 1.3
+Blood Urea              38          mg/dL       15 - 40
+
+THYROID
+TSH                     4.8         mIU/L       0.4 - 4.0
+
+Allergies noted: Penicillin
+Current Medications: Metformin 500mg

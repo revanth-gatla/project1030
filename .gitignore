@@ -1,0 +1,63 @@
+# Environment
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Scratch and diagnostic scripts
+backend/test_extract.py
+backend/fix_clarifications_data.py
+backend/fix_questions.py
+backend/inspect_ashok.py
+backend/reprocess_ashok.py
+backend/test_parse_engine.py
+backend/*_dump.txt
+*.dump.txt
+
+# Node
+node_modules/
+.next/
+out/
+.vercel
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Coverage
+.coverage
+htmlcov/
+.nyc_output/
+coverage/
+
+# Docker
+*.log

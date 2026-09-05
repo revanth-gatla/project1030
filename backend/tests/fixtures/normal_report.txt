@@ -1,0 +1,19 @@
+COMPLETE BLOOD COUNT
+Date: 2026-07-15
+Lab: Wellness Labs
+
+Hemoglobin              14.5        g/dL        13.0 - 17.0
+WBC                     6200        /cumm       4000 - 11000
+Platelet Count          280000      /cumm       150000 - 400000
+
+BLOOD SUGAR
+Fasting Glucose         92          mg/dL       70 - 110
+
+LIPID PROFILE
+Total Cholesterol       185         mg/dL       < 200
+HDL                     52          mg/dL       > 40
+LDL                     98          mg/dL       < 100
+Triglycerides           135         mg/dL       < 150
+
+KIDNEY FUNCTION
+Creatinine              0.9         mg/dL       0.7 - 1.3
